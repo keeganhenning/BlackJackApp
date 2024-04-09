@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { Text, View, Button, Image } from 'react-native';
-import { player, handleHit, handleDouble, handleSplit } from './components/Player';
-import { dealer, handleStand } from './components/Dealer';
-import { dealInitialCards, resetGame } from './components/Game';
-import { calculateScore } from './components/Card';
+import { shuffleDeck, deck } from './components/Deck';
 
 const cardImages = {
   '2C': require('./assets/2C.png'),
@@ -58,49 +55,172 @@ const cardImages = {
   'AD': require('./assets/AD.png'),
   'AH': require('./assets/AH.png'),
   'AS': require('./assets/AS.png'),
+  'back': require('./assets/back.png'),
 };
 
 function BlackjackApp() {
-  const [playerHand, setPlayerHand] = useState(player.hand || []);
-  const [playerScore] = useState(player.score);
-  const [dealerHand, setDealerHand] = useState(dealer.hand || []);
-  const [dealerScore] = useState(dealer.score);
-  // Call dealInitialCards when the component mounts
-  React.useEffect(() => {
-    dealInitialCards();
-    setPlayerHand(player.hand || []);
-    setDealerHand(dealer.hand || []);
-    calculateScore(player.hand);
-    calculateScore(dealer.hand);
-  }, []);
+  const [playerHand, setPlayerHand] = useState([]);
+  const [playerScore, setPlayerScore] = useState(0);
+  const [dealerHand, setDealerHand] = useState([]);
+  const [dealerScore, setDealerScore] = useState(0);
+  const [showDealerCard, setShowDealerCard] = useState(false);
+
+let shuffledDeck = shuffleDeck([...deck]);
+
+const dealCard = () => {
+  if (shuffledDeck.length === 0) {
+    shuffledDeck = shuffleDeck([...deck]);
+  }
+  return shuffledDeck.pop();
+};
+
+const calculateScore = (hand, isDealer) => {
+  let score = 0;
+  let aceCount = 0;
+
+  for (let i = 0; i < hand.length; i++) {
+    let card = hand[i];
+    let value = card.slice(0, 1);
+    if (['A'].includes(value)) {
+      aceCount += 1;
+      score += 11;
+    } else if (['K', 'Q', 'J', '1'].includes(value)) {
+      score += 10;
+    } else {
+      score += parseInt(value);
+    }
+  }
+
+  if (isDealer && !showDealerCard) {
+    score -= parseInt(hand[1].slice(0, 1));
+  }
+
+  while (score > 21 && aceCount > 0) {
+    score -= 10;
+    aceCount -= 1;
+  }
+  return score;
+};
+
+const determineWinner = () => {
+  // Implement the logic to determine the winner
+  if (playerScore > 21) {
+    // Player busts, dealer wins
+    return "Dealer";
+  } else if (dealerScore > 21) {
+    // Dealer busts, player wins
+    return "Player";
+  } else if (playerScore === dealerScore) {
+    // It's a tie
+    return "Tie";
+  } else if (playerScore > dealerScore) {
+    // Player wins
+    return "Player";
+  } else {
+    // Dealer wins
+    return "Dealer";
+  }
+};
+
+const bet = (amount) => {
+  game.betAmount = amount;
+};
+
+const bank = {
+  balance: 1000,
+  addToBalance: (amount) => {
+    bank.balance += amount;
+  },
+  subtractFromBalance: (amount) => {
+    bank.balance -= amount;
+  },
+};
+
+const handleHit = (currentHand) => {
+  const newHand = [...currentHand, dealCard()];
+  const newScore = calculateScore(newHand);
+  if (newScore > 21) {
+    determineWinner();
+  } else if (newScore === 21) {
+    determineWinner();
+  }
+  return newHand;
+};
+
+const handleDouble = (currentHand) => {
+  const newHand = [...currentHand, dealCard()];
+  bet(game.betAmount * 2);
+  return newHand;
+};
+
+const handleSplit = (currentHand) => {
+  const newHand = [currentHand.pop()];
+  return [currentHand, { hand: newHand, score: calculateScore(newHand) }];
+};
+
+const handleStand = (currentHand) => {
+  while (dealerScore < 17) {
+    currentHand.push(dealCard());
+    setDealerHand(currentHand);
+    setDealerScore(calculateScore(currentHand));
+    }
+  determineWinner();
+};
+
+const resetGame = () => {
+  setPlayerHand([]);
+  setPlayerScore(0);
+  setDealerHand([]);
+  setDealerScore(0);
+  setShowDealerCard(false);
+  dealInitialCards();
+};
+
+const dealInitialCards = () => {
+  setPlayerHand([dealCard(), dealCard()]);
+  setDealerHand([dealCard(), dealCard()]);
+  setDealerScore(calculateScore(dealerHand));
+  setPlayerScore(calculateScore(playerHand));
+};
+
+React.useEffect(() => {
+  resetGame();
+}, []);
 
   return (
-    <View>
-      <Text>Blackjack</Text>
-      <View>
-        <Text>Player's Hand: {playerHand.join(', ')}</Text>
-        <Text style={{ position: 'absolute', top: 10, left: 10 }}>Player's Score: {playerScore}</Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-          <Button title="Hit" onPress={() => setPlayerHand(handleHit(playerHand))} />
+    <View style={styles.container}>
+      <Text style={styles.title}>Blackjack</Text>
+      <View style={styles.playerContainer}>
+        <Text style={styles.playerHandText}>Player's Hand: {playerHand && playerHand.length > 0 ? playerHand.join(', ') : ''}</Text>
+        <Text style={styles.playerScoreText}>Player's Score: {playerScore}</Text>
+        <View style={styles.buttonContainer}>
+          <Button title="Hit" onPress={() => {
+            const newPlayerHand = handleHit(playerHand);
+            setPlayerHand(newPlayerHand);
+            setPlayerScore(calculateScore(newPlayerHand));
+          }} />
           <Button title="Double" onPress={() => setPlayerHand(handleDouble(playerHand))} />
           <Button title="Split" onPress={() => setPlayerHand(handleSplit(playerHand))} />
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
-          {playerHand.map((card, index) => (
-            <Image key={index} source={cardImages[card]} style={{ width: 50, height: 80, margin: 5 }} />
+        <View style={styles.cardContainer}>
+          {playerHand && playerHand.map((card, index) => (
+            <Image key={index} source={cardImages[card]} style={styles.cardImage} />
           ))}
         </View>
       </View>
-      <View>
-        <Text>Dealer's Hand: {dealerHand.join(', ')}</Text>
-        <Text style={{ position: 'absolute', top: 10, right: 10 }}>Dealer's Score: {dealerScore}</Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-          <Button title="Stand" onPress={() => setDealerHand(handleStand(dealerHand))} />
-          <Button title="New Game" onPress={() => setDealerHand(resetGame)} />
+      <View style={styles.dealerContainer}>
+        <Text style={styles.dealerHandText}>Dealer's Hand: {dealerHand && dealerHand.length > 0 ? dealerHand.join(', ') : ''}</Text>
+        <Text style={styles.dealerScoreText}>Dealer's Score: {dealerScore}</Text>
+        <View style={styles.buttonContainer}>
+          <Button title="Stand" onPress={() => {
+            handleStand(dealerHand);
+            setShowDealerCard(true);
+          }} />
+          <Button title="New Game" onPress={() => resetGame()} />
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
-          {dealerHand.map((card, index) => (
-            <Image key={index} source={cardImages[card]} style={{ width: 50, height: 80, margin: 5 }} />
+        <View style={styles.cardContainer}>
+          {dealerHand && dealerHand.map((card, index) => (
+            <Image key={index} source={index === 1 && !showDealerCard ? cardImages['back'] : cardImages[card]} style={styles.cardImage} />
           ))}
         </View>
       </View>
@@ -108,4 +228,55 @@ function BlackjackApp() {
   );
 }
 
+const styles = {
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  playerContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  playerHandText: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  playerScoreText: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  dealerContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dealerHandText: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  dealerScoreText: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+  },
+  cardContainer: {
+    flexDirection: 'row',
+  },
+  cardImage: {
+    width: 100,
+    height: 150,
+    margin: 5,
+  },
+};
+
 export default BlackjackApp;
+
