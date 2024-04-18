@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Text, View, Button, Image } from 'react-native';
 import { shuffleDeck, deck } from './components/Deck';
+import { Slider } from 'react-native-elements';
 
 const cardImages = {
   '2C': require('./assets/2C.png'),
@@ -61,9 +62,11 @@ const cardImages = {
 function BlackjackApp() {
   const [playerHand, setPlayerHand] = useState([]);
   const [playerScore, setPlayerScore] = useState(0);
+  const [playerBank, setBank] = useState(1000);
   const [dealerHand, setDealerHand] = useState([]);
   const [dealerScore, setDealerScore] = useState(0);
   const [showDealerCard, setShowDealerCard] = useState(false);
+  const [sliderValue, setSliderValue] = useState(0);
 
 let shuffledDeck = shuffleDeck([...deck]);
 
@@ -123,7 +126,8 @@ const determineWinner = () => {
 };
 
 const bet = (amount) => {
-  game.betAmount = amount;
+  game.betAmount += amount;
+  bank.subtractFromBalance(amount);
 };
 
 const bank = {
@@ -167,9 +171,14 @@ const handleStand = (currentHand) => {
   determineWinner();
 };
 
+const onSliderValueChange = (value) => {
+  setSliderValue(value);
+};
+
 const resetGame = () => {
   setPlayerHand([]);
   setPlayerScore(0);
+  setBank(1000);
   setDealerHand([]);
   setDealerScore(0);
   setShowDealerCard(false);
@@ -193,6 +202,21 @@ React.useEffect(() => {
       <View style={styles.playerContainer}>
         <Text style={styles.playerHandText}>Player's Hand: {playerHand && playerHand.length > 0 ? playerHand.join(', ') : ''}</Text>
         <Text style={styles.playerScoreText}>Player's Score: {playerScore}</Text>
+        <Text style={styles.playerBankText}>Player's Bank: {playerBank}</Text>
+        <Text>Value: {sliderValue}</Text>
+        <Slider
+          style={styles.slider}
+          minimumValue={0}
+          maximumValue={playerBank}
+          step={10}
+          value={sliderValue}
+          onValueChange={onSliderValueChange}
+          thumbProps={{ style: styles.thumb, 
+          thumbSize: 20, 
+          thumbTintColor: 'black', 
+          minimumTrackTintColor: 'blue', 
+          maximumTrackTintColor: 'gray', }}
+        />
         <View style={styles.buttonContainer}>
           <Button title="Hit" onPress={() => {
             const newPlayerHand = handleHit(playerHand);
@@ -242,12 +266,17 @@ const styles = {
   playerContainer: {
     alignItems: 'center',
     marginBottom: 20,
+    marginTop: 20,
   },
   playerHandText: {
     fontSize: 16,
     marginBottom: 10,
   },
   playerScoreText: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  playerBankText: {
     fontSize: 16,
     marginBottom: 10,
   },
@@ -275,6 +304,15 @@ const styles = {
     width: 100,
     height: 150,
     margin: 5,
+  },
+  slider: {
+    width: 300,
+  },
+  thumb: {
+    width: 10,
+    height: 20,
+    borderRadius: 5 / 2,
+    backgroundColor: 'black',
   },
 };
 
