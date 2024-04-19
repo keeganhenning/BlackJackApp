@@ -62,11 +62,14 @@ const cardImages = {
 function BlackjackApp() {
   const [playerHand, setPlayerHand] = useState([]);
   const [playerScore, setPlayerScore] = useState(0);
-  const [playerBank, setBank] = useState(1000);
+  const [playerBank, setPlayerBank] = useState(1000);
   const [dealerHand, setDealerHand] = useState([]);
   const [dealerScore, setDealerScore] = useState(0);
   const [showDealerCard, setShowDealerCard] = useState(false);
   const [sliderValue, setSliderValue] = useState(0);
+  const [doubleClicked, setDoubleClicked] = useState(false);
+  const [drawCards, setDrawCards] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
 
 let shuffledDeck = shuffleDeck([...deck]);
 
@@ -106,55 +109,67 @@ const calculateScore = (hand, isDealer) => {
 };
 
 const determineWinner = () => {
+  if (isGameOver) return;
+  setIsGameOver(true);
   // Implement the logic to determine the winner
   if (playerScore > 21) {
     // Player busts, dealer wins
+    setPlayerBank(playerBank - sliderValue);
     return "Dealer";
   } else if (dealerScore > 21) {
     // Dealer busts, player wins
+    setPlayerBank(playerBank + sliderValue);
     return "Player";
   } else if (playerScore === dealerScore) {
     // It's a tie
     return "Tie";
   } else if (playerScore > dealerScore) {
     // Player wins
+    setPlayerBank(playerBank + sliderValue);
     return "Player";
+  } else if (playerScore === 21){
+    // Player blackjack, Player wins
+    setPlayerBank(playerBank + (sliderValue * 1.5));
+    return "Player"; 
+  } else if (dealerScore === 21) {
+    setPlayerBank(playerBank - sliderValue);
+    // Dealer blackjack, Dealer wins
+    return "Dealer";
   } else {
     // Dealer wins
+    setPlayerBank(playerBank - sliderValue);
     return "Dealer";
   }
 };
 
-const bet = (amount) => {
-  game.betAmount += amount;
-  bank.subtractFromBalance(amount);
-};
-
-const bank = {
-  balance: 1000,
-  addToBalance: (amount) => {
-    bank.balance += amount;
-  },
-  subtractFromBalance: (amount) => {
-    bank.balance -= amount;
-  },
-};
+const handleDoubleClick = () => {
+  setDoubleClicked(true);
+  setSliderValue(sliderValue * 2);
+}
 
 const handleHit = (currentHand) => {
   const newHand = [...currentHand, dealCard()];
   const newScore = calculateScore(newHand);
-  if (newScore > 21) {
-    determineWinner();
-  } else if (newScore === 21) {
-    determineWinner();
+  if (newScore <= 21) {   
+    return newHand;
   }
-  return newHand;
+  // Player busts
+  setPlayerHand(newHand);
+  setPlayerScore(newScore);
+  setPlayerBank(playerBank - sliderValue);
 };
 
 const handleDouble = (currentHand) => {
+  handleDoubleClick();
   const newHand = [...currentHand, dealCard()];
-  bet(game.betAmount * 2);
-  return newHand;
+  const newScore = calculateScore(newHand);
+  if (newScore <= 21) {
+    return newHand;
+  }
+  // Player busts
+  setPlayerHand(newHand);
+  setPlayerScore(newScore);
+  setPlayerBank(playerBank - sliderValue);
 };
 
 const handleSplit = (currentHand) => {
@@ -162,85 +177,126 @@ const handleSplit = (currentHand) => {
   return [currentHand, { hand: newHand, score: calculateScore(newHand) }];
 };
 
-const handleStand = (currentHand) => {
-  while (dealerScore < 17) {
-    currentHand.push(dealCard());
-    setDealerHand(currentHand);
-    setDealerScore(calculateScore(currentHand));
-    }
-  determineWinner();
+const handleStand = () => {
+  setDrawCards(true);
 };
+
+React.useEffect(() => {
+  // This runs when any of the dependencies (playerScore, dealerScore, drawCards) change
+  if (drawCards && dealerScore < 17) {
+    const timerId = setTimeout(() => {
+      const card = dealCard();
+      setDealerHand(prevHand => [...prevHand, card]);
+      setDealerScore(calculateScore([...dealerHand, card], true));
+    }, 1000);
+    return () => clearTimeout(timerId);
+  } else if (dealerScore >= 17) {
+    setDrawCards(false);
+    determineWinner();
+  }
+}, [dealerScore, drawCards, playerScore]);
 
 const onSliderValueChange = (value) => {
   setSliderValue(value);
 };
 
 const resetGame = () => {
-  setPlayerHand([]);
-  setPlayerScore(0);
-  setBank(1000);
-  setDealerHand([]);
-  setDealerScore(0);
+  setIsGameOver(false);
+  setPlayerBank(1000);
   setShowDealerCard(false);
+  setDealerScore(0);
+  setPlayerScore(0);
   dealInitialCards();
+  setDoubleClicked(false);
 };
 
 const dealInitialCards = () => {
-  setPlayerHand([dealCard(), dealCard()]);
-  setDealerHand([dealCard(), dealCard()]);
-  setDealerScore(calculateScore(dealerHand));
-  setPlayerScore(calculateScore(playerHand));
+  const playerNewHand = [dealCard(), dealCard()];
+  const dealerNewHand = [dealCard(), dealCard()];
+  
+  setPlayerHand(playerNewHand);
+  setDealerHand(dealerNewHand);
+  
+  setDealerScore(calculateScore(dealerNewHand));
+  setPlayerScore(calculateScore(playerNewHand));
 };
+
+const ThumbLabel = ({ value }) => (
+  <View style={{ alignItems: 'center', marginTop: 20, userSelect: 'none' }}>
+    <Text style={{ color: '#FFC107', fontWeight: 'bold', userSelect: 'none' }}>
+      {value.toFixed(0)} {/* .toFixed(0) to ensure it's rounded to an integer */}
+    </Text>
+  </View>
+);
 
 React.useEffect(() => {
   resetGame();
 }, []);
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Blackjack</Text>
-      <View style={styles.playerContainer}>
+return (
+  <View style={styles.container}>
+    <Text style={styles.title}>Blackjack</Text>
+    <View style={styles.playerContainer}>
+      <View style={styles.containerText}>
         <Text style={styles.playerHandText}>Player's Hand: {playerHand && playerHand.length > 0 ? playerHand.join(', ') : ''}</Text>
         <Text style={styles.playerScoreText}>Player's Score: {playerScore}</Text>
         <Text style={styles.playerBankText}>Player's Bank: {playerBank}</Text>
-        <Text>Value: {sliderValue}</Text>
+        {/*<Text style={styles.sliderValueText}>Value: {sliderValue}</Text>*/}
         <Slider
           style={styles.slider}
           minimumValue={0}
           maximumValue={playerBank}
-          step={10}
+          step={50}
           value={sliderValue}
           onValueChange={onSliderValueChange}
-          thumbProps={{ style: styles.thumb, 
-          thumbSize: 20, 
-          thumbTintColor: 'black', 
-          minimumTrackTintColor: 'blue', 
-          maximumTrackTintColor: 'gray', }}
+          thumbTintColor='#FFC107' // Golden yellow thumb
+          minimumTrackTintColor='#FFC107' // Golden yellow track
+          maximumTrackTintColor='#4C4C4C' // Dark track for contrast
+          allowTouchTrack={true}
+          animateTransitions={true}
+          thumbStyle={{ height: 20, width: 20 }}
+          thumbProps={{
+            children: <ThumbLabel value={sliderValue} />,
+          }}
         />
+      </View>
+      <View style={styles.containerButtons}>
         <View style={styles.buttonContainer}>
-          <Button title="Hit" onPress={() => {
+          <Button title="Hit" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => {
             const newPlayerHand = handleHit(playerHand);
             setPlayerHand(newPlayerHand);
             setPlayerScore(calculateScore(newPlayerHand));
           }} />
-          <Button title="Double" onPress={() => setPlayerHand(handleDouble(playerHand))} />
-          <Button title="Split" onPress={() => setPlayerHand(handleSplit(playerHand))} />
-        </View>
-        <View style={styles.cardContainer}>
-          {playerHand && playerHand.map((card, index) => (
-            <Image key={index} source={cardImages[card]} style={styles.cardImage} />
-          ))}
+          <Button title="Double" color={"#000"} backgroundColor={"#FFC107"} disabled={doubleClicked} style={styles.button} onPress={() => 
+            {
+              const newPlayerHand = handleDouble(playerHand);
+              setPlayerHand(newPlayerHand);
+              setPlayerScore(calculateScore(newPlayerHand));
+              handleDoubleClick();
+              console.log(playerHand);
+            }
+          }/>
+          <Button title="Split" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => setPlayerHand(handleSplit(playerHand))} />
         </View>
       </View>
-      <View style={styles.dealerContainer}>
-        <Text style={styles.dealerHandText}>Dealer's Hand: {dealerHand && dealerHand.length > 0 ? dealerHand.join(', ') : ''}</Text>
-        <Text style={styles.dealerScoreText}>Dealer's Score: {dealerScore}</Text>
+      <View style={styles.cardContainer}>
+        {playerHand && playerHand.map((card, index) => (
+          <Image key={index} source={cardImages[card]} style={styles.cardImage} />
+        ))}
+      </View>
+    </View>
+    <View style={styles.dealerContainer}>
+      <View style={styles.containerText}>
+        <Text style={styles.dealerHandText}>Dealer's Hand: {showDealerCard ? (dealerHand && dealerHand.length > 0 ? dealerHand.join(', ') : '') : "??"}</Text>
+        <Text style={styles.dealerScoreText}> Dealer's Score: {showDealerCard ? dealerScore : "??"} </Text>
+      </View>
+      <View style={styles.containerButtons}>
         <View style={styles.buttonContainer}>
-          <Button title="Stand" onPress={() => {
-            handleStand(dealerHand);
+          <Button title="Stand" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => {
+            handleStand();
             setShowDealerCard(true);
           }} />
-          <Button title="New Game" onPress={() => resetGame()} />
+          <Button title="New Game" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => resetGame()} />
         </View>
         <View style={styles.cardContainer}>
           {dealerHand && dealerHand.map((card, index) => (
@@ -249,70 +305,112 @@ React.useEffect(() => {
         </View>
       </View>
     </View>
-  );
+  </View>
+);
 }
 
+// Updated styles block with modifications for button CSS
 const styles = {
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#1a1a1a', // A deep black for the dark theme
+    padding: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 34,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#FFC107', // McDonald's golden yellow for accent
+    marginTop: 20,
+    marginBottom: 25,
+    textAlign: 'center',
+    fontFamily: 'Helvetica, Arial, sans-serif',
   },
   playerContainer: {
+    backgroundColor: '#242424', // Slightly lighter dark shade for contrast
+    padding: 20,
+    borderRadius: 15,
+    marginVertical: 15,
+    shadowColor: '#FFC107', // Golden yellow shadow for some pop
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  containerText: {
+    backgroundColor: '#242424', // Slightly lighter dark shade for contrast
+    padding: 20,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 20,
+    userSelect: 'none',
+  },
+  containerButtons: {
+    backgroundColor: '#242424', // Slightly lighter dark shade for contrast
+    padding: 20,
   },
   playerHandText: {
-    fontSize: 16,
-    marginBottom: 10,
+    fontSize: 18,
+    color: '#FFC107', // Maintaining the golden yellow for text
+    marginBottom: 15,
   },
   playerScoreText: {
-    fontSize: 16,
-    marginBottom: 10,
+    fontSize: 18,
+    color: '#FFC107',
+    marginBottom: 15,
   },
   playerBankText: {
-    fontSize: 16,
-    marginBottom: 10,
+    fontSize: 18,
+    color: '#FFC107',
+    marginBottom: 15,
+  },
+  sliderValueText: {
+    fontSize: 18,
+    color: '#FFC107',
+    marginBottom: 15,
   },
   dealerContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
+    backgroundColor: '#242424',
+    padding: 20,
+    borderRadius: 15,
+    marginVertical: 15,
+    shadowColor: '#FFC107',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   dealerHandText: {
-    fontSize: 16,
-    marginBottom: 10,
+    fontSize: 18,
+    color: '#FFC107',
+    marginBottom: 15,
   },
   dealerScoreText: {
-    fontSize: 16,
-    marginBottom: 10,
+    fontSize: 18,
+    color: '#FFC107',
+    marginBottom: 15,
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 10,
+    justifyContent: 'space-between', // Adjusted for even spacing across the container
+    marginBottom: 15,
+  },
+  button: {
+    flex: 1, // Allows the button to expand and fill available space
+    padding: 10,
+    borderRadius: 5,
+    marginHorizontal: 5, // Add horizontal margin for spacing between buttons
+    elevation: 2,
   },
   cardContainer: {
     flexDirection: 'row',
+    justifyContent: 'center',
   },
   cardImage: {
     width: 100,
     height: 150,
-    margin: 5,
+    marginHorizontal: 5,
   },
   slider: {
-    width: 300,
-  },
-  thumb: {
-    width: 10,
-    height: 20,
-    borderRadius: 5 / 2,
-    backgroundColor: 'black',
+    width: '85%',
   },
 };
 
