@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, Button, Image } from 'react-native';
+import { Text, View, Button, Image, StyleSheet } from 'react-native';
 import { shuffleDeck, deck } from './components/Deck';
 import { Slider } from 'react-native-elements';
 
@@ -80,6 +80,20 @@ const dealCard = () => {
   return shuffledDeck.pop();
 };
 
+const dealInitialCards = () => {
+  const playerNewHand = [dealCard(), dealCard()];
+  const dealerNewHand = [dealCard(), dealCard()];
+  setPlayerHand(playerNewHand);
+  setDealerHand(dealerNewHand);
+  setDealerScore(calculateScore(dealerNewHand));
+  setPlayerScore(calculateScore(playerNewHand));
+};
+
+React.useEffect(() => {
+  dealInitialCards();
+}
+, []);
+
 const calculateScore = (hand, isDealer) => {
   let score = 0;
   let aceCount = 0;
@@ -112,64 +126,56 @@ const determineWinner = () => {
   if (isGameOver) return;
   setIsGameOver(true);
   // Implement the logic to determine the winner
+  let winner = "";
   if (playerScore > 21) {
     // Player busts, dealer wins
     setPlayerBank(playerBank - sliderValue);
-    return "Dealer";
+    winner = "Dealer";
   } else if (dealerScore > 21) {
     // Dealer busts, player wins
     setPlayerBank(playerBank + sliderValue);
-    return "Player";
+    winner = "Player";
   } else if (playerScore === dealerScore) {
     // It's a tie
-    return "Tie";
-  } else if (playerScore > dealerScore) {
-    // Player wins
-    setPlayerBank(playerBank + sliderValue);
-    return "Player";
+    winner = "Tie";  
   } else if (playerScore === 21){
     // Player blackjack, Player wins
     setPlayerBank(playerBank + (sliderValue * 1.5));
-    return "Player"; 
+    winner = "Player"; 
   } else if (dealerScore === 21) {
     setPlayerBank(playerBank - sliderValue);
     // Dealer blackjack, Dealer wins
-    return "Dealer";
-  } else {
+    winner = "Dealer";
+  } else if (playerScore > dealerScore) {
+    // Player wins
+    setPlayerBank(playerBank + sliderValue);
+    winner = "Player";
+  } else if (dealerScore > playerScore) {
     // Dealer wins
     setPlayerBank(playerBank - sliderValue);
-    return "Dealer";
+    winner = "Dealer";
+  } else {
+    // No winner
+    winner = "No one";
   }
+  alert(`The winner is: ${winner}`);
+  softReset();
 };
 
 const handleDoubleClick = () => {
   setDoubleClicked(true);
   setSliderValue(sliderValue * 2);
-}
+};
 
 const handleHit = (currentHand) => {
   const newHand = [...currentHand, dealCard()];
-  const newScore = calculateScore(newHand);
-  if (newScore <= 21) {   
-    return newHand;
-  }
-  // Player busts
-  setPlayerHand(newHand);
-  setPlayerScore(newScore);
-  setPlayerBank(playerBank - sliderValue);
+  return newHand;
 };
 
 const handleDouble = (currentHand) => {
   handleDoubleClick();
   const newHand = [...currentHand, dealCard()];
-  const newScore = calculateScore(newHand);
-  if (newScore <= 21) {
-    return newHand;
-  }
-  // Player busts
-  setPlayerHand(newHand);
-  setPlayerScore(newScore);
-  setPlayerBank(playerBank - sliderValue);
+  return newHand;
 };
 
 const handleSplit = (currentHand) => {
@@ -177,24 +183,39 @@ const handleSplit = (currentHand) => {
   return [currentHand, { hand: newHand, score: calculateScore(newHand) }];
 };
 
-const handleStand = () => {
-  setDrawCards(true);
-};
+React.useEffect(() => {
+  if (drawCards) {
+    const intervalId = setInterval(() => {
+      if (dealerScore < 17) {
+        const newDealerHand = handleHit(dealerHand);
+        setDealerHand(newDealerHand);
+        setDealerScore(calculateScore(newDealerHand, true));
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }
+}, [drawCards, dealerScore]);
+
 
 React.useEffect(() => {
-  // This runs when any of the dependencies (playerScore, dealerScore, drawCards) change
-  if (drawCards && dealerScore < 17) {
+  if (dealerScore >= 17 && drawCards) {
     const timerId = setTimeout(() => {
-      const card = dealCard();
-      setDealerHand(prevHand => [...prevHand, card]);
-      setDealerScore(calculateScore([...dealerHand, card], true));
+      determineWinner();
     }, 1000);
     return () => clearTimeout(timerId);
-  } else if (dealerScore >= 17) {
-    setDrawCards(false);
-    determineWinner();
   }
-}, [dealerScore, drawCards, playerScore]);
+}, [dealerScore, showDealerCard]);
+
+React.useEffect(() => {
+  if (playerScore > 21) {
+    const timerId = setTimeout(() => {
+      determineWinner();
+    }, 1000);
+    return () => clearTimeout(timerId);
+  }
+}, [playerScore]);
 
 const onSliderValueChange = (value) => {
   setSliderValue(value);
@@ -208,17 +229,20 @@ const resetGame = () => {
   setPlayerScore(0);
   dealInitialCards();
   setDoubleClicked(false);
+  setSliderValue(0);
+  shuffleDeck([...deck]);
+  setDrawCards(false);
 };
 
-const dealInitialCards = () => {
-  const playerNewHand = [dealCard(), dealCard()];
-  const dealerNewHand = [dealCard(), dealCard()];
-  
-  setPlayerHand(playerNewHand);
-  setDealerHand(dealerNewHand);
-  
-  setDealerScore(calculateScore(dealerNewHand));
-  setPlayerScore(calculateScore(playerNewHand));
+const softReset = () => {
+  setIsGameOver(false);
+  setShowDealerCard(false);
+  setDealerScore(0);
+  setPlayerScore(0);
+  dealInitialCards();
+  setDoubleClicked(false);
+  setSliderValue(0);
+  setDrawCards(false);
 };
 
 const ThumbLabel = ({ value }) => (
@@ -228,10 +252,6 @@ const ThumbLabel = ({ value }) => (
     </Text>
   </View>
 );
-
-React.useEffect(() => {
-  resetGame();
-}, []);
 
 return (
   <View style={styles.container}>
@@ -266,7 +286,8 @@ return (
             const newPlayerHand = handleHit(playerHand);
             setPlayerHand(newPlayerHand);
             setPlayerScore(calculateScore(newPlayerHand));
-          }} />
+          }
+          } />
           <Button title="Double" color={"#000"} backgroundColor={"#FFC107"} disabled={doubleClicked} style={styles.button} onPress={() => 
             {
               const newPlayerHand = handleDouble(playerHand);
@@ -293,8 +314,8 @@ return (
       <View style={styles.containerButtons}>
         <View style={styles.buttonContainer}>
           <Button title="Stand" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => {
-            handleStand();
             setShowDealerCard(true);
+            setDrawCards(true);
           }} />
           <Button title="New Game" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => resetGame()} />
         </View>
@@ -307,10 +328,10 @@ return (
     </View>
   </View>
 );
-}
+};
 
 // Updated styles block with modifications for button CSS
-const styles = {
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a1a', // A deep black for the dark theme
@@ -412,7 +433,6 @@ const styles = {
   slider: {
     width: '85%',
   },
-};
+});
 
 export default BlackjackApp;
-
