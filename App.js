@@ -126,6 +126,7 @@ const calculateScore = (hand, isDealer) => {
 const determineWinner = () => {
   if (isGameOver) return;
   setIsGameOver(true);
+  setShowDealerCard(true);
   // Implement the logic to determine the winner
   let winner = "";
   if (playerScore > 21) {
@@ -165,7 +166,9 @@ const determineWinner = () => {
 
 const handleDoubleClick = () => {
   setDoubleClicked(true);
+  setDrawCards(true);
   setSliderValue(sliderValue * 2);
+  setShowDealerCard(true);
 };
 
 const handleHit = (currentHand) => {
@@ -174,7 +177,6 @@ const handleHit = (currentHand) => {
 };
 
 const handleDouble = (currentHand) => {
-  handleDoubleClick();
   const newHand = [...currentHand, dealCard()];
   return newHand;
 };
@@ -302,7 +304,6 @@ return (
               setPlayerHand(newPlayerHand);
               setPlayerScore(calculateScore(newPlayerHand));
               handleDoubleClick();
-              console.log(playerHand);
             }
           }/>
           {/* <Button title="Split" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => setPlayerHand(handleSplit(playerHand))} /> */}
