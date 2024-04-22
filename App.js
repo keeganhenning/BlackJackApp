@@ -229,7 +229,7 @@ const resetGame = () => {
   setPlayerScore(0);
   dealInitialCards();
   setDoubleClicked(false);
-  setSliderValue(0);
+  setSliderValue(50);
   shuffleDeck([...deck]);
   setDrawCards(false);
 };
@@ -241,7 +241,7 @@ const softReset = () => {
   setPlayerScore(0);
   dealInitialCards();
   setDoubleClicked(false);
-  setSliderValue(0);
+  setSliderValue(50);
   setDrawCards(false);
 };
 
@@ -264,7 +264,7 @@ return (
         {/*<Text style={styles.sliderValueText}>Value: {sliderValue}</Text>*/}
         <Slider
           style={styles.slider}
-          minimumValue={0}
+          minimumValue={50}
           maximumValue={playerBank}
           step={50}
           value={sliderValue}
