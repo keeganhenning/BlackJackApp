@@ -66,7 +66,7 @@ function BlackjackApp() {
   const [dealerHand, setDealerHand] = useState([]);
   const [dealerScore, setDealerScore] = useState(0);
   const [showDealerCard, setShowDealerCard] = useState(false);
-  const [sliderValue, setSliderValue] = useState(0);
+  const [sliderValue, setSliderValue] = useState(50);
   const [doubleClicked, setDoubleClicked] = useState(false);
   const [drawCards, setDrawCards] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
@@ -151,7 +151,7 @@ const determineWinner = () => {
     setPlayerBank(playerBank - sliderValue);
     winner = "Dealer";
   }
-  alert("Game Over", `${winner} wins!`, [{ text: "OK" }]);
+  alert(`${winner} wins!`, "", [{ text: "OK" }]);
   softReset();
 };
 
@@ -233,6 +233,18 @@ React.useEffect(() => {
   }
 }, [dealerScore, drawCards, playerScore, playerDone]);
 
+React.useEffect(() => {
+  if (playerScore > 21) {
+    const timerId = setTimeout(() => {
+      setPlayerDone(true);
+      setIsGameOver(true);
+      determineWinner();
+    }, 1000);
+    softReset();
+    return () => clearTimeout(timerId);
+  }
+}, [playerScore]);
+
 const onSliderValueChange = (value) => {
   setSliderValue(value);
 };
@@ -246,7 +258,7 @@ const resetGame = () => {
   setPlayerScore(0);
   dealInitialCards();
   setDoubleClicked(false);
-  setSliderValue(0);
+  setSliderValue(50);
   setDrawCards(false);
   shuffleDeck([...deck]);
   setSurrender(false);
@@ -260,7 +272,7 @@ const softReset = () => {
   setPlayerScore(0);
   dealInitialCards();
   setDoubleClicked(false);
-  setSliderValue(0);
+  setSliderValue(50);
   setDrawCards(false);
   setSurrender(false);
   setPlayerDone(false);
@@ -301,7 +313,7 @@ return (
         {/*<Text style={styles.sliderValueText}>Value: {sliderValue}</Text>*/}
         <Slider
           style={styles.slider}
-          minimumValue={0}
+          minimumValue={50}
           maximumValue={playerBank}
           step={50}
           value={sliderValue}
@@ -357,6 +369,13 @@ return (
             }
           }}
         />
+        <Button title="Stand" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} disabled={isGameOver} onPress={() => {
+            if (!isGameOver) {
+              handleStand();
+              setShowDealerCard(true);
+              setPlayerDone(true);
+            }
+          }} />
 
         {/* <Button 
           title="Split" 
@@ -389,13 +408,6 @@ return (
       </View>
       <View style={styles.containerButtons}>
         <View style={styles.buttonContainer}>
-          <Button title="Stand" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} disabled={isGameOver} onPress={() => {
-            if (!isGameOver) {
-              handleStand();
-              setShowDealerCard(true);
-              setPlayerDone(true);
-            }
-          }} />
           <Button title="Surrender" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} disabled={isGameOver} onPress={() => {
             if (!isGameOver) {
               handleSurrender();
