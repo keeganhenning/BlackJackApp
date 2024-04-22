@@ -74,7 +74,7 @@ function BlackjackApp() {
 let shuffledDeck = shuffleDeck([...deck]);
 
 const dealCard = () => {
-  if (shuffledDeck.length === 0) {
+  if (shuffledDeck.length < 5) {
     shuffledDeck = shuffleDeck([...deck]);
   }
   return shuffledDeck.pop();
