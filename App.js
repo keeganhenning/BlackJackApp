@@ -181,6 +181,12 @@ const handleDouble = (currentHand) => {
   return newHand;
 };
 
+const handleSurrender = () => {
+  setPlayerBank(playerBank - (sliderValue / 2));
+  alert("Surrendered.");
+  softReset();
+};
+
 // const handleSplit = (currentHand) => {
 //   const newHand = [currentHand.pop()];
 //   return [currentHand, { hand: newHand, score: calculateScore(newHand) }];
@@ -325,6 +331,9 @@ return (
           <Button title="Stand" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => {
             setShowDealerCard(true);
             setDrawCards(true);
+          }} />
+          <Button title="Surrender" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => {
+            handleSurrender();
           }} />
           <Button title="New Game" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => resetGame()} />
         </View>
