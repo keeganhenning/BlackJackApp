@@ -6,6 +6,7 @@ const BlackjackApp = () => {
   const [dealerHand, setDealerHand] = useState([]);
   const [playerScore, setPlayerScore] = useState(0);
   const [dealerScore, setDealerScore] = useState(0);
+  const [resultMessage, setResultMessage] = useState('');
   const [betAmount, setBetAmount] = useState(0);
   const [gameOver, setGameOver] = useState(false);
 
@@ -96,30 +97,34 @@ const BlackjackApp = () => {
   const handleHit = () => {
     dealCard(playerHand, setPlayerHand, setPlayerScore);
   };
+
+  //const dealerHit = () => {
+    //dealCard(dealerHand, setDealerHand, setDealerScore);
+  //};
   
 
   const handleStand = () => {
-    //const dealerHitLoop = () => {
+    dealCard(dealerHand, setDealerHand, setDealerScore);
     while (dealerScore < 17) {
       if (dealerScore < 17) {
         // Dealer hits
         dealCard(dealerHand, setDealerHand, setDealerScore);
         setTimeout(dealerHitLoop, 500); // Delay execution to prevent blocking
+        dealerHitLoop();
       } else {
         // Dealer's turn is finished, check for winner
         determineWinner();
       }
     //};
-    handleStand();
     }
-    // Start the loop for dealer hits
   };
-  
-  
-  
-  
-  
-  
+
+  const dealerHitLoop = () => {
+    dealCard(dealerHand, setDealerHand, setDealerScore);
+    while(dealerScore < 17) {
+      dealerHitLoop();
+    }
+  };
 
   const determineWinner = () => {
     if (playerScore > 21) {
@@ -145,12 +150,27 @@ const BlackjackApp = () => {
   };
 
   const resetGame = () => {
-    // Implement logic to reset the game
-  };
+  // Reset player and dealer cards to empty arrays
+  setPlayerCards([]);
+  setDealerCards([]);
+  // Generate a new deck of cards
+  const newDeck = generateDeck();
+  // Set the deck state to the new deck
+  setDeck(newDeck);
+  // Reset player and dealer scores to 0
+  setPlayerScore(0);
+  setDealerScore(0);
+  // Reset player bust state to false
+  setPlayerBust(false);
+  // Deal initial cards to start a new game
+  dealInitialCards();
+};
+
 
   return (
     <View>
       <Text>Blackjack</Text>
+      <Text>Result: {resultMessage}</Text>
       <View>
         <Text>Dealer Hand: {dealerHand.join(', ')}</Text>
         <Text>Dealer Score: {dealerScore}</Text>
