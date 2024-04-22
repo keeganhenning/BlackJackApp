@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, Button, Image } from 'react-native';
+import { Text, View, Button, Image, Alert, StyleSheet } from 'react-native';
 import { shuffleDeck, deck } from './components/Deck';
 import { Slider } from 'react-native-elements';
 
@@ -70,9 +70,12 @@ function BlackjackApp() {
   const [doubleClicked, setDoubleClicked] = useState(false);
   const [drawCards, setDrawCards] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [surrender, setSurrender] = useState(false);
+  const [playerDone, setPlayerDone] = useState(false);
 
 let shuffledDeck = shuffleDeck([...deck]);
 
+// deals a card from the deck
 const dealCard = () => {
   if (shuffledDeck.length === 0) {
     shuffledDeck = shuffleDeck([...deck]);
@@ -80,6 +83,7 @@ const dealCard = () => {
   return shuffledDeck.pop();
 };
 
+// calculates the score of the hand
 const calculateScore = (hand, isDealer) => {
   let score = 0;
   let aceCount = 0;
@@ -108,81 +112,111 @@ const calculateScore = (hand, isDealer) => {
   return score;
 };
 
+// determines the winner of the game
 const determineWinner = () => {
   if (isGameOver) return;
   setIsGameOver(true);
+  let winner = "";
   // Implement the logic to determine the winner
-  if (playerScore > 21) {
-    // Player busts, dealer wins
-    setPlayerBank(playerBank - sliderValue);
-    return "Dealer";
-  } else if (dealerScore > 21) {
-    // Dealer busts, player wins
-    setPlayerBank(playerBank + sliderValue);
-    return "Player";
-  } else if (playerScore === dealerScore) {
+  if (playerScore === dealerScore) {
     // It's a tie
-    return "Tie";
-  } else if (playerScore > dealerScore) {
-    // Player wins
-    setPlayerBank(playerBank + sliderValue);
-    return "Player";
+    winner = "Tie";
   } else if (playerScore === 21){
     // Player blackjack, Player wins
     setPlayerBank(playerBank + (sliderValue * 1.5));
-    return "Player"; 
+    winner = "Player"; 
+  } else if (surrender) {
+    // Player surrenders, dealer wins
+    setPlayerBank((playerBank) => playerBank - (sliderValue / 2));
+    setSurrender(false);
+    winner = "Dealer";
+  } else if (playerScore > 21) {
+    // Player busts, dealer wins
+    setPlayerBank(playerBank - sliderValue);
+    winner = "Dealer";
+  } else if (dealerScore > 21) {
+    // Dealer busts, player wins
+    setPlayerBank(playerBank + sliderValue);
+    winner = "Player";
+  } else if (playerScore > dealerScore) {
+    // Player wins
+    setPlayerBank(playerBank + sliderValue);
+    winner = "Player";
   } else if (dealerScore === 21) {
     setPlayerBank(playerBank - sliderValue);
     // Dealer blackjack, Dealer wins
-    return "Dealer";
+    winner = "Dealer";
   } else {
     // Dealer wins
     setPlayerBank(playerBank - sliderValue);
-    return "Dealer";
+    winner = "Dealer";
   }
+  alert("Game Over", `${winner} wins!`, [{ text: "OK" }]);
+  softReset();
 };
 
+// double the bet amount
 const handleDoubleClick = () => {
   setDoubleClicked(true);
   setSliderValue(sliderValue * 2);
 }
 
+// player hits and receives one more card
 const handleHit = (currentHand) => {
   const newHand = [...currentHand, dealCard()];
   const newScore = calculateScore(newHand);
-  if (newScore <= 21) {   
-    return newHand;
+
+  setPlayerHand(newHand); 
+  setPlayerScore(newScore); 
+
+  if (newScore > 21) {
+    setPlayerBank((currentBank) => currentBank - sliderValue);
+    setIsGameOver(true);
   }
-  // Player busts
-  setPlayerHand(newHand);
-  setPlayerScore(newScore);
-  setPlayerBank(playerBank - sliderValue);
+  return newHand;
 };
 
+// player doubles their bet and receive one more card
 const handleDouble = (currentHand) => {
-  handleDoubleClick();
+  handleDoubleClick(); 
+  
   const newHand = [...currentHand, dealCard()];
   const newScore = calculateScore(newHand);
-  if (newScore <= 21) {
-    return newHand;
-  }
-  // Player busts
-  setPlayerHand(newHand);
+
+  setPlayerHand(newHand); 
   setPlayerScore(newScore);
-  setPlayerBank(playerBank - sliderValue);
+  setPlayerDone(true);
+
+  if (newScore > 21) {
+    setPlayerBank((currentBank) => currentBank - (sliderValue * 2));
+    setIsGameOver(true);
+  } else {
+    setShowDealerCard(true);
+    setDrawCards(true);
+  }
+  return newHand;
 };
 
+// if the player surrenders, the dealer wins and the player loses half of their bet
+const handleSurrender = () => {
+  setIsGameOver(true);
+  setSurrender(true);
+  setPlayerBank((currentBank) => currentBank - (sliderValue / 2));
+};
+
+// split cards into two hands
 const handleSplit = (currentHand) => {
   const newHand = [currentHand.pop()];
   return [currentHand, { hand: newHand, score: calculateScore(newHand) }];
 };
 
+// if the player stands, move to dealers turn
 const handleStand = () => {
   setDrawCards(true);
 };
 
+// checks for changes in dealerScore, drawCards, playerScore, and playerDone to invoke dealer turn
 React.useEffect(() => {
-  // This runs when any of the dependencies (playerScore, dealerScore, drawCards) change
   if (drawCards && dealerScore < 17) {
     const timerId = setTimeout(() => {
       const card = dealCard();
@@ -190,16 +224,20 @@ React.useEffect(() => {
       setDealerScore(calculateScore([...dealerHand, card], true));
     }, 1000);
     return () => clearTimeout(timerId);
-  } else if (dealerScore >= 17) {
+  } else if (dealerScore >= 17 && playerDone) {
     setDrawCards(false);
+    const timerId = setTimeout(() => {
     determineWinner();
+    }, 2000);
+    return () => clearTimeout(timerId);
   }
-}, [dealerScore, drawCards, playerScore]);
+}, [dealerScore, drawCards, playerScore, playerDone]);
 
 const onSliderValueChange = (value) => {
   setSliderValue(value);
 };
 
+// resets all defaults
 const resetGame = () => {
   setIsGameOver(false);
   setPlayerBank(1000);
@@ -208,8 +246,27 @@ const resetGame = () => {
   setPlayerScore(0);
   dealInitialCards();
   setDoubleClicked(false);
+  setSliderValue(0);
+  setDrawCards(false);
+  shuffleDeck([...deck]);
+  setSurrender(false);
+  setPlayerDone(false);
 };
 
+const softReset = () => {
+  setIsGameOver(false);
+  setShowDealerCard(false);
+  setDealerScore(0);
+  setPlayerScore(0);
+  dealInitialCards();
+  setDoubleClicked(false);
+  setSliderValue(0);
+  setDrawCards(false);
+  setSurrender(false);
+  setPlayerDone(false);
+}
+
+// deals initial cards to player and dealer
 const dealInitialCards = () => {
   const playerNewHand = [dealCard(), dealCard()];
   const dealerNewHand = [dealCard(), dealCard()];
@@ -230,7 +287,7 @@ const ThumbLabel = ({ value }) => (
 );
 
 React.useEffect(() => {
-  resetGame();
+  dealInitialCards();
 }, []);
 
 return (
@@ -249,9 +306,9 @@ return (
           step={50}
           value={sliderValue}
           onValueChange={onSliderValueChange}
-          thumbTintColor='#FFC107' // Golden yellow thumb
-          minimumTrackTintColor='#FFC107' // Golden yellow track
-          maximumTrackTintColor='#4C4C4C' // Dark track for contrast
+          thumbTintColor='#FFC107' 
+          minimumTrackTintColor='#FFC107' 
+          maximumTrackTintColor='#4C4C4C' 
           allowTouchTrack={true}
           animateTransitions={true}
           thumbStyle={{ height: 20, width: 20 }}
@@ -262,21 +319,61 @@ return (
       </View>
       <View style={styles.containerButtons}>
         <View style={styles.buttonContainer}>
-          <Button title="Hit" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => {
-            const newPlayerHand = handleHit(playerHand);
-            setPlayerHand(newPlayerHand);
-            setPlayerScore(calculateScore(newPlayerHand));
-          }} />
-          <Button title="Double" color={"#000"} backgroundColor={"#FFC107"} disabled={doubleClicked} style={styles.button} onPress={() => 
-            {
-              const newPlayerHand = handleDouble(playerHand);
-              setPlayerHand(newPlayerHand);
-              setPlayerScore(calculateScore(newPlayerHand));
-              handleDoubleClick();
-              console.log(playerHand);
+        <Button 
+          title="Hit" 
+          color={"#000"} 
+          backgroundColor={"#FFC107"} 
+          disabled={isGameOver} 
+          style={styles.button} 
+          onPress={() => {
+            if (!isGameOver) {
+              if (sliderValue === 0) {
+                alert("Please select a bet amount before hitting.", "", [{ text: "OK" }]); // alert doesn't work, but still stops player from hitting if bet is 0
+              } else {
+                const newPlayerHand = handleHit(playerHand);
+                setPlayerHand(newPlayerHand);
+                setPlayerScore(calculateScore(newPlayerHand));
+              }
             }
-          }/>
-          <Button title="Split" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => setPlayerHand(handleSplit(playerHand))} />
+          }} 
+        />
+
+        <Button 
+          title="Double" 
+          color={"#000"} 
+          backgroundColor={"#FFC107"} 
+          disabled={isGameOver || doubleClicked} 
+          style={styles.button} 
+          onPress={() => {
+            if (!isGameOver) {
+              if (sliderValue === 0) {
+                alert("Please select a bet amount before hitting.", "", [{ text: "OK" }]); // alert doesn't work, but still stops player from doubling if bet is 0
+              } else {
+                const newPlayerHand = handleDouble(playerHand);
+                setPlayerHand(newPlayerHand);
+                setPlayerScore(calculateScore(newPlayerHand));
+                handleDoubleClick();
+              }
+            }
+          }}
+        />
+
+        {/* <Button 
+          title="Split" 
+          color={"#000"} 
+          backgroundColor={"#FFC107"} 
+          disabled={isGameOver} 
+          style={styles.button} 
+          onPress={() => {
+            if (!isGameOver) {
+              if (sliderValue === 0) {
+                alert("Please select a bet amount before hitting.", "", [{ text: "OK" }]); // alert doesn't work, but still stops player from splitting if bet is 0
+              } else {
+                setPlayerHand(handleSplit(playerHand));
+              }
+            }
+          }} 
+        /> */}
         </View>
       </View>
       <View style={styles.cardContainer}>
@@ -292,9 +389,18 @@ return (
       </View>
       <View style={styles.containerButtons}>
         <View style={styles.buttonContainer}>
-          <Button title="Stand" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => {
-            handleStand();
-            setShowDealerCard(true);
+          <Button title="Stand" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} disabled={isGameOver} onPress={() => {
+            if (!isGameOver) {
+              handleStand();
+              setShowDealerCard(true);
+              setPlayerDone(true);
+            }
+          }} />
+          <Button title="Surrender" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} disabled={isGameOver} onPress={() => {
+            if (!isGameOver) {
+              handleSurrender();
+              setShowDealerCard(true);
+            }
           }} />
           <Button title="New Game" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => resetGame()} />
         </View>
@@ -309,47 +415,47 @@ return (
 );
 }
 
-// Updated styles block with modifications for button CSS
-const styles = {
+
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a', // A deep black for the dark theme
+    backgroundColor: '#1a1a1a',
     padding: 20,
   },
   title: {
     fontSize: 34,
     fontWeight: 'bold',
-    color: '#FFC107', // McDonald's golden yellow for accent
+    color: '#FFC107',
     marginTop: 20,
     marginBottom: 25,
     textAlign: 'center',
     fontFamily: 'Helvetica, Arial, sans-serif',
   },
   playerContainer: {
-    backgroundColor: '#242424', // Slightly lighter dark shade for contrast
+    backgroundColor: '#242424',
     padding: 20,
     borderRadius: 15,
     marginVertical: 15,
-    shadowColor: '#FFC107', // Golden yellow shadow for some pop
+    shadowColor: '#FFC107',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
     elevation: 8,
   },
   containerText: {
-    backgroundColor: '#242424', // Slightly lighter dark shade for contrast
+    backgroundColor: '#242424',
     padding: 20,
     justifyContent: 'center',
     alignItems: 'center',
     userSelect: 'none',
   },
   containerButtons: {
-    backgroundColor: '#242424', // Slightly lighter dark shade for contrast
+    backgroundColor: '#242424',
     padding: 20,
   },
   playerHandText: {
     fontSize: 18,
-    color: '#FFC107', // Maintaining the golden yellow for text
+    color: '#FFC107',
     marginBottom: 15,
   },
   playerScoreText: {
@@ -390,14 +496,14 @@ const styles = {
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // Adjusted for even spacing across the container
+    justifyContent: 'space-around',
     marginBottom: 15,
   },
   button: {
-    flex: 1, // Allows the button to expand and fill available space
+    flex: 1,
     padding: 10,
     borderRadius: 5,
-    marginHorizontal: 5, // Add horizontal margin for spacing between buttons
+    marginHorizontal: 5,
     elevation: 2,
   },
   cardContainer: {
@@ -412,7 +518,7 @@ const styles = {
   slider: {
     width: '85%',
   },
-};
+});
 
 export default BlackjackApp;
 
