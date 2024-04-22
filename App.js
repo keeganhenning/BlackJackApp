@@ -91,6 +91,7 @@ const dealInitialCards = () => {
 
 React.useEffect(() => {
   dealInitialCards();
+  setSliderValue(50);
 }
 , []);
 
@@ -178,10 +179,10 @@ const handleDouble = (currentHand) => {
   return newHand;
 };
 
-const handleSplit = (currentHand) => {
-  const newHand = [currentHand.pop()];
-  return [currentHand, { hand: newHand, score: calculateScore(newHand) }];
-};
+// const handleSplit = (currentHand) => {
+//   const newHand = [currentHand.pop()];
+//   return [currentHand, { hand: newHand, score: calculateScore(newHand) }];
+// };
 
 React.useEffect(() => {
   if (drawCards) {
@@ -190,8 +191,6 @@ React.useEffect(() => {
         const newDealerHand = handleHit(dealerHand);
         setDealerHand(newDealerHand);
         setDealerScore(calculateScore(newDealerHand, true));
-      } else {
-        clearInterval(intervalId);
       }
     }, 1000);
     return () => clearInterval(intervalId);
@@ -216,6 +215,15 @@ React.useEffect(() => {
     return () => clearTimeout(timerId);
   }
 }, [playerScore]);
+
+React.useEffect(() => {
+  if (dealerScore > playerScore && dealerScore <= 17 && drawCards) {
+    const timerId = setTimeout(() => {
+      determineWinner();
+    }, 1000);
+    return () => clearTimeout(timerId);
+  }
+}, [dealerScore]);
 
 const onSliderValueChange = (value) => {
   setSliderValue(value);
@@ -297,7 +305,7 @@ return (
               console.log(playerHand);
             }
           }/>
-          <Button title="Split" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => setPlayerHand(handleSplit(playerHand))} />
+          {/* <Button title="Split" color={"#000"} backgroundColor={"#FFC107"} style={styles.button} onPress={() => setPlayerHand(handleSplit(playerHand))} /> */}
         </View>
       </View>
       <View style={styles.cardContainer}>
