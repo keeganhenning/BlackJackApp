@@ -1,4 +1,4 @@
-Welcome to the blackjack app, to get started run "npx expo start" in the directory and select your prefered method of viewing (web or mobil)
+Welcome to the blackjack app, to get started run "npx expo start" in the directory and select your prefered method of viewing (web or mobile)
 
 To start playing, use the slider to make a bet and click on any of the following buttons:
 
